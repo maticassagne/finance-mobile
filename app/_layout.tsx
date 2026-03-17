@@ -1,24 +1,42 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { useEffect, useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import { ActivityIndicator, View } from "react-native";
+import "react-native-reanimated";
+import { NavigationStack } from "../src/navigation";
+import { initializeDatabase } from "../src/db/database";
+import { seedDatabase } from "../src/db/seed";
+import { DataRefreshProvider } from "../src/context/DataRefreshContext";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const initApp = async () => {
+      try {
+        await initializeDatabase();
+        await seedDatabase();
+        setIsReady(true);
+      } catch (err) {
+        console.error("Failed to initialize app:", err);
+        setIsReady(true); // Show app anyway
+      }
+    };
+
+    initApp();
+  }, []);
+
+  if (!isReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
+    <DataRefreshProvider>
+      <NavigationStack />
       <StatusBar style="auto" />
-    </ThemeProvider>
+    </DataRefreshProvider>
   );
 }
