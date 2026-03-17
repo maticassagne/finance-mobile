@@ -4,7 +4,12 @@ import { getAllTransactions, getTransactionsByDateRange } from "../services/tran
 import { format } from "date-fns";
 import { useDataRefresh } from "../context/DataRefreshContext";
 
-export const useTransactions = (dateRange: DateRange) => {
+export interface TransactionFilters {
+  type?: "income" | "expense";
+  category?: string;
+}
+
+export const useTransactions = (dateRange: DateRange, filters: TransactionFilters = {}) => {
   const [data, setData] = useState<Transaction[]>([]);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,9 +42,18 @@ export const useTransactions = (dateRange: DateRange) => {
         // Ordenar por fecha descendente
         const sorted = transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        setAllTransactions(sorted);
-        setData(sorted.slice(0, itemsPerPage));
-        setHasMore(sorted.length > itemsPerPage);
+        // Aplicar filtros
+        let filtered = sorted;
+        if (filters.type) {
+          filtered = filtered.filter((t) => t.type === filters.type);
+        }
+        if (filters.category) {
+          filtered = filtered.filter((t) => t.category === filters.category);
+        }
+
+        setAllTransactions(filtered);
+        setData(filtered.slice(0, itemsPerPage));
+        setHasMore(filtered.length > itemsPerPage);
       } catch (err: any) {
         setError(err.message || "Error fetching transactions");
       } finally {
@@ -48,7 +62,7 @@ export const useTransactions = (dateRange: DateRange) => {
     };
 
     fetchTransactions();
-  }, [dateRange.from, dateRange.to, refreshTrigger, refreshVersion]);
+  }, [dateRange.from, dateRange.to, filters.type, filters.category, refreshTrigger, refreshVersion]);
 
   // Cargar más transacciones
   const loadMore = async () => {

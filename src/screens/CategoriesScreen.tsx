@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert } from "react-native";
-import { useCategories } from "../hooks";
+import { useCategories, useCategoryStats } from "../hooks";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
 import { deleteCategory } from "../services/categoryService";
@@ -10,6 +10,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const CategoriesScreen = () => {
   const { data: categories, isLoading, refresh } = useCategories();
+  const { data: categoryStats } = useCategoryStats({ from: null, to: null }); // Todo el tiempo
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const navigation = useNavigation();
   const { triggerRefresh } = useDataRefresh();
@@ -22,6 +23,11 @@ const CategoriesScreen = () => {
   const groupedCategories = {
     income: categories.filter((c) => c.type === "income"),
     expense: categories.filter((c) => c.type === "expense"),
+  };
+
+  const getCategoryTotal = (categoryName: string, type: "income" | "expense") => {
+    const stat = categoryStats.find((s) => s.category === categoryName && s.type === type);
+    return stat ? stat.total : 0;
   };
 
   const handleDelete = async (categoryId: string, categoryName: string) => {
@@ -72,7 +78,10 @@ const CategoriesScreen = () => {
                         <View style={styles.iconBg}>
                           <MaterialCommunityIcons name="plus-circle" size={24} color="#16a34a" />
                         </View>
-                        <Text style={styles.categoryName}>{category.name}</Text>
+                        <View>
+                          <Text style={styles.categoryName}>{category.name}</Text>
+                          <Text style={styles.categoryTotal}>Total: ${getCategoryTotal(category.name, "income").toFixed(2)}</Text>
+                        </View>
                       </View>
                       <Pressable onPress={() => handleDelete(category.id, category.name)}>
                         <MaterialCommunityIcons name="delete-outline" size={24} color="#dc2626" />
@@ -94,7 +103,10 @@ const CategoriesScreen = () => {
                         <View style={styles.iconBg}>
                           <MaterialCommunityIcons name="minus-circle" size={24} color="#dc2626" />
                         </View>
-                        <Text style={styles.categoryName}>{category.name}</Text>
+                        <View>
+                          <Text style={styles.categoryName}>{category.name}</Text>
+                          <Text style={styles.categoryTotal}>Total: ${getCategoryTotal(category.name, "expense").toFixed(2)}</Text>
+                        </View>
                       </View>
                       <Pressable onPress={() => handleDelete(category.id, category.name)}>
                         <MaterialCommunityIcons name="delete-outline" size={24} color="#dc2626" />
@@ -198,6 +210,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#111827",
+  },
+  categoryTotal: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginTop: 2,
   },
   emptyCard: {
     marginTop: 40,

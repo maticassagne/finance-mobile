@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert } from "react-native";
-import { useTransactions } from "../hooks";
+import { useTransactions, useCategories, TransactionFilters } from "../hooks";
 import { DateRange } from "../types";
 import { Card, Button } from "../components";
 import { startOfMonth } from "date-fns";
@@ -20,7 +20,10 @@ const TransactionsScreen = () => {
     to: today,
   });
 
-  const { data: transactions, isLoading, refresh } = useTransactions(dateRange);
+  const [filters, setFilters] = useState<TransactionFilters>({});
+  const { data: categories } = useCategories();
+
+  const { data: transactions, isLoading, refresh } = useTransactions(dateRange, filters);
   const navigation = useNavigation();
   const { triggerRefresh } = useDataRefresh();
 
@@ -62,6 +65,42 @@ const TransactionsScreen = () => {
       </View>
 
       <ScrollView style={styles.content}>
+        {/* Filters */}
+        <Card style={styles.filtersCard}>
+          <Text style={styles.filtersTitle}>Filtros</Text>
+          <View style={styles.filtersRow}>
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Tipo</Text>
+              <View style={styles.filterButtons}>
+                <Pressable style={[styles.filterButton, !filters.type && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, type: undefined })}>
+                  <Text style={[styles.filterButtonText, !filters.type && styles.filterButtonTextActive]}>Todos</Text>
+                </Pressable>
+                <Pressable style={[styles.filterButton, filters.type === "income" && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, type: "income" })}>
+                  <Text style={[styles.filterButtonText, filters.type === "income" && styles.filterButtonTextActive]}>Ingresos</Text>
+                </Pressable>
+                <Pressable style={[styles.filterButton, filters.type === "expense" && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, type: "expense" })}>
+                  <Text style={[styles.filterButtonText, filters.type === "expense" && styles.filterButtonTextActive]}>Gastos</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+          <View style={styles.filtersRow}>
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Categoría</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilterScroll}>
+                <Pressable style={[styles.categoryFilterButton, !filters.category && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, category: undefined })}>
+                  <Text style={[styles.filterButtonText, !filters.category && styles.filterButtonTextActive]}>Todas</Text>
+                </Pressable>
+                {categories.map((category) => (
+                  <Pressable key={category.id} style={[styles.categoryFilterButton, filters.category === category.name && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, category: category.name })}>
+                    <Text style={[styles.filterButtonText, filters.category === category.name && styles.filterButtonTextActive]}>{category.name}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Card>
+
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#10b981" />
@@ -257,6 +296,63 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  filtersCard: {
+    marginBottom: 16,
+    padding: 16,
+  },
+  filtersTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#111827",
+    marginBottom: 12,
+  },
+  filtersRow: {
+    marginBottom: 12,
+  },
+  filterGroup: {
+    marginBottom: 8,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  filterButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#ffffff",
+  },
+  filterButtonActive: {
+    backgroundColor: "#10b981",
+    borderColor: "#10b981",
+  },
+  filterButtonText: {
+    fontSize: 14,
+    color: "#6b7280",
+  },
+  filterButtonTextActive: {
+    color: "#ffffff",
+  },
+  categoryFilterScroll: {
+    flexDirection: "row",
+  },
+  categoryFilterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#ffffff",
+    marginRight: 8,
   },
 });
 
