@@ -400,6 +400,7 @@ const styles = StyleSheet.create({
   filterButtons: {
     flexDirection: "row",
     gap: 8,
+    flexWrap: "wrap",
   },
   filterButton: {
     paddingHorizontal: 12,
@@ -452,6 +453,32 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 13,
     color: "#6b7280",
+  },
+  customDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    gap: 8,
+  },
+  customDateInput: {
+    flex: 1,
+    height: 40,
+    borderColor: "#d1d5db",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    backgroundColor: "#ffffff",
+  },
+  applyButton: {
+    backgroundColor: "#10b981",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  applyButtonText: {
+    color: "#ffffff",
+    fontWeight: "bold",
+    fontSize: 14,
   },
 });
 

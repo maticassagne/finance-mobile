@@ -2,7 +2,7 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { DashboardScreen, TransactionsScreen, CategoriesScreen } from "../screens";
+import { DashboardScreen, TransactionsScreen, CategoriesScreen, ChartsScreen } from "../screens";
 import CreateTransactionScreen from "../screens/CreateTransactionScreen";
 import CreateCategoryScreen from "../screens/CreateCategoryScreen";
 import EditTransactionScreen from "../screens/EditTransactionScreen";
@@ -23,6 +23,8 @@ const MainTabs = () => (
           iconName = focused ? "credit-card" : "credit-card-outline";
         } else if (route.name === "Categories") {
           iconName = focused ? "tag-multiple" : "tag-multiple-outline";
+        } else if (route.name === "Charts") {
+          iconName = focused ? "chart-pie" : "chart-pie";
         }
 
         return <MaterialCommunityIcons name={iconName as any} size={size} color={color} />;
@@ -44,6 +46,7 @@ const MainTabs = () => (
     <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarLabel: "Inicio" }} />
     <Tab.Screen name="Transactions" component={TransactionsScreen} options={{ tabBarLabel: "Transacciones" }} />
     <Tab.Screen name="Categories" component={CategoriesScreen} options={{ tabBarLabel: "Categorías" }} />
+    <Tab.Screen name="Charts" component={ChartsScreen} options={{ tabBarLabel: "Gráficos" }} />
   </Tab.Navigator>
 );
 

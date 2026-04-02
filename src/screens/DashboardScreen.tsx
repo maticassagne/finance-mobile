@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, TextInput, Alert } from "react-native";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useSummary, useTransactions } from "../hooks";
+import { useSummary, useTransactions, useCategories } from "../hooks";
 import { useFocusEffect } from "@react-navigation/native";
 import { DateRange } from "../types";
 import { StatCard, Card, CardHeader, CardTitle, CardContent } from "../components";
@@ -53,6 +53,7 @@ const DashboardScreen = () => {
 
   const { data: summary, isLoading: loadingSummary, refresh: refreshSummary } = useSummary(dateRange);
   const { data: transactions, isLoading: loadingTransactions } = useTransactions(dateRange);
+  const { data: categories } = useCategories();
 
   const isLoading = loadingSummary || loadingTransactions;
 
@@ -136,7 +137,7 @@ const DashboardScreen = () => {
                     <View style={styles.transactionItem}>
                       <View style={styles.transactionInfo}>
                         <Text style={styles.transactionDescription}>{transaction.description}</Text>
-                        <Text style={styles.transactionCategory}>{transaction.category}</Text>
+                        <Text style={styles.transactionCategory}>{categories.find((c) => c.id === transaction.category)?.name || transaction.category}</Text>
                       </View>
                       <Text style={[styles.transactionAmount, transaction.type === "income" ? styles.incomeText : styles.expenseText]}>
                         {transaction.type === "income" ? "+" : "-"}${transaction.amount.toFixed(2)}
