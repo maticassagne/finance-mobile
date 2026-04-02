@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert, TextInput } from "react-native";
 import { useTransactions, useCategories, TransactionFilters } from "../hooks";
 import { DateRange } from "../types";
 import { Card, Button } from "../components";
-import { startOfMonth } from "date-fns";
+import { addMonths, endOfMonth, format, parseISO, startOfMonth, isValid } from "date-fns";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -15,13 +15,54 @@ const TransactionsScreen = () => {
   const today = new Date();
   const startOfCurrentMonth = startOfMonth(today);
 
+  const [selectedDateOption, setSelectedDateOption] = useState<"all" | "current" | "previous" | "custom">("all");
+  const [customDateFrom, setCustomDateFrom] = useState<string>(format(today, "yyyy-MM-dd"));
+  const [customDateTo, setCustomDateTo] = useState<string>(format(today, "yyyy-MM-dd"));
   const [dateRange, setDateRange] = useState<DateRange>({
-    from: startOfCurrentMonth,
-    to: today,
+    from: null,
+    to: null,
   });
 
   const [filters, setFilters] = useState<TransactionFilters>({});
   const { data: categories } = useCategories();
+
+  const getDateRangeForOption = (option: "all" | "current" | "previous" | "custom"): DateRange => {
+    if (option === "current") {
+      return { from: startOfMonth(today), to: today };
+    }
+    if (option === "previous") {
+      const previous = addMonths(today, -1);
+      return { from: startOfMonth(previous), to: endOfMonth(previous) };
+    }
+    if (option === "custom") {
+      const from = parseISO(customDateFrom);
+      const to = parseISO(customDateTo);
+      return { from: isValid(from) ? from : null, to: isValid(to) ? to : null };
+    }
+    return { from: null, to: null };
+  };
+
+  const applyDateOption = (option: "all" | "current" | "previous" | "custom") => {
+    setSelectedDateOption(option);
+    setDateRange(getDateRangeForOption(option));
+  };
+
+  const applyCustomDateRange = () => {
+    const from = parseISO(customDateFrom);
+    const to = parseISO(customDateTo);
+
+    if (!isValid(from) || !isValid(to)) {
+      Alert.alert("Fecha inválida", "Ingresa fechas válidas en formato YYYY-MM-DD.");
+      return;
+    }
+    if (from > to) {
+      Alert.alert("Rango inválido", "La fecha desde debe ser anterior o igual a la fecha hasta.");
+      return;
+    }
+
+    setSelectedDateOption("custom");
+    setDateRange({ from, to });
+  };
 
   const { data: transactions, isLoading, refresh } = useTransactions(dateRange, filters);
   const navigation = useNavigation();
@@ -65,6 +106,37 @@ const TransactionsScreen = () => {
       </View>
 
       <ScrollView style={styles.content}>
+        {/* Date range selector */}
+        <Card style={styles.filtersCard}>
+          <Text style={styles.filtersTitle}>Rango de Fecha</Text>
+          <View style={styles.filtersRow}>
+            <View style={styles.filterButtons}>
+              <Pressable style={[styles.filterButton, selectedDateOption === "all" && styles.filterButtonActive]} onPress={() => applyDateOption("all")}>
+                <Text style={[styles.filterButtonText, selectedDateOption === "all" && styles.filterButtonTextActive]}>Todos</Text>
+              </Pressable>
+              <Pressable style={[styles.filterButton, selectedDateOption === "current" && styles.filterButtonActive]} onPress={() => applyDateOption("current")}>
+                <Text style={[styles.filterButtonText, selectedDateOption === "current" && styles.filterButtonTextActive]}>Mes Actual</Text>
+              </Pressable>
+              <Pressable style={[styles.filterButton, selectedDateOption === "previous" && styles.filterButtonActive]} onPress={() => applyDateOption("previous")}>
+                <Text style={[styles.filterButtonText, selectedDateOption === "previous" && styles.filterButtonTextActive]}>Mes Anterior</Text>
+              </Pressable>
+              <Pressable style={[styles.filterButton, selectedDateOption === "custom" && styles.filterButtonActive]} onPress={() => setSelectedDateOption("custom")}>
+                <Text style={[styles.filterButtonText, selectedDateOption === "custom" && styles.filterButtonTextActive]}>Rango</Text>
+              </Pressable>
+            </View>
+          </View>
+          {selectedDateOption === "custom" && (
+            <View style={styles.customDateRow}>
+              <TextInput style={styles.customDateInput} value={customDateFrom} placeholder="Desde YYYY-MM-DD" onChangeText={setCustomDateFrom} keyboardType="numeric" />
+              <TextInput style={styles.customDateInput} value={customDateTo} placeholder="Hasta YYYY-MM-DD" onChangeText={setCustomDateTo} keyboardType="numeric" />
+              <Pressable style={styles.applyButton} onPress={applyCustomDateRange}>
+                <Text style={styles.applyButtonText}>Aplicar</Text>
+              </Pressable>
+            </View>
+          )}
+          <Text style={styles.dateRangeText}>{dateRange.from && dateRange.to ? `${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}` : "Todos los datos"}</Text>
+        </Card>
+
         {/* Filters */}
         <Card style={styles.filtersCard}>
           <Text style={styles.filtersTitle}>Filtros</Text>
@@ -81,6 +153,9 @@ const TransactionsScreen = () => {
                 <Pressable style={[styles.filterButton, filters.type === "expense" && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, type: "expense" })}>
                   <Text style={[styles.filterButtonText, filters.type === "expense" && styles.filterButtonTextActive]}>Gastos</Text>
                 </Pressable>
+                <Pressable style={styles.clearFiltersButton} onPress={() => setFilters({})}>
+                  <Text style={styles.clearFiltersText}>Limpiar</Text>
+                </Pressable>
               </View>
             </View>
           </View>
@@ -91,9 +166,12 @@ const TransactionsScreen = () => {
                 <Pressable style={[styles.categoryFilterButton, !filters.category && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, category: undefined })}>
                   <Text style={[styles.filterButtonText, !filters.category && styles.filterButtonTextActive]}>Todas</Text>
                 </Pressable>
+                <Pressable style={styles.clearFiltersButton} onPress={() => setFilters({})}>
+                  <Text style={styles.clearFiltersText}>Limpiar</Text>
+                </Pressable>
                 {categories.map((category) => (
-                  <Pressable key={category.id} style={[styles.categoryFilterButton, filters.category === category.name && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, category: category.name })}>
-                    <Text style={[styles.filterButtonText, filters.category === category.name && styles.filterButtonTextActive]}>{category.name}</Text>
+                  <Pressable key={category.id} style={[styles.categoryFilterButton, filters.category === category.id && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, category: category.id })}>
+                    <Text style={[styles.filterButtonText, filters.category === category.id && styles.filterButtonTextActive]}>{category.name}</Text>
                   </Pressable>
                 ))}
               </ScrollView>
@@ -115,7 +193,7 @@ const TransactionsScreen = () => {
                   </View>
                   <View style={styles.transactionDetails}>
                     <Text style={styles.description}>{transaction.description}</Text>
-                    <Text style={styles.category}>{transaction.category}</Text>
+                    <Text style={styles.category}>{categories.find((c) => c.id === transaction.category)?.name || transaction.category}</Text>
                     <Text style={styles.date}>{new Date(transaction.date).toLocaleDateString()}</Text>
                   </View>
                   <Text style={[styles.amount, transaction.type === "income" ? styles.incomeAmount : styles.expenseAmount]}>
@@ -339,6 +417,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
   },
+  clearFiltersButton: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#f8fafc",
+    marginLeft: 8,
+  },
+  clearFiltersText: {
+    fontSize: 14,
+    color: "#374151",
+    fontWeight: "600",
+  },
   filterButtonTextActive: {
     color: "#ffffff",
   },
@@ -353,6 +447,11 @@ const styles = StyleSheet.create({
     borderColor: "#d1d5db",
     backgroundColor: "#ffffff",
     marginRight: 8,
+  },
+  dateRangeText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: "#6b7280",
   },
 });
 
