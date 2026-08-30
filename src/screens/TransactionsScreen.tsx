@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert, TextInput, FlatList } from "react-native";
 import { useTransactions, useCategories, TransactionFilters } from "../hooks";
 import { DateRange } from "../types";
 import { Card, Button } from "../components";
@@ -64,7 +64,7 @@ const TransactionsScreen = () => {
     setDateRange({ from, to });
   };
 
-  const { data: transactions, isLoading, refresh } = useTransactions(dateRange, filters);
+  const { data: transactions, isLoading, isLoadingMore, hasMore, refresh, loadMore } = useTransactions(dateRange, filters);
   const navigation = useNavigation();
   const { triggerRefresh } = useDataRefresh();
 
@@ -105,131 +105,148 @@ const TransactionsScreen = () => {
         <Text style={styles.headerSubtitle}>Gestiona tus transacciones</Text>
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Date range selector */}
-        <Card style={styles.filtersCard}>
-          <Text style={styles.filtersTitle}>Rango de Fecha</Text>
-          <View style={styles.filtersRow}>
-            <View style={styles.filterButtons}>
-              <Pressable style={[styles.filterButton, selectedDateOption === "all" && styles.filterButtonActive]} onPress={() => applyDateOption("all")}>
-                <Text style={[styles.filterButtonText, selectedDateOption === "all" && styles.filterButtonTextActive]}>Todos</Text>
-              </Pressable>
-              <Pressable style={[styles.filterButton, selectedDateOption === "current" && styles.filterButtonActive]} onPress={() => applyDateOption("current")}>
-                <Text style={[styles.filterButtonText, selectedDateOption === "current" && styles.filterButtonTextActive]}>Mes Actual</Text>
-              </Pressable>
-              <Pressable style={[styles.filterButton, selectedDateOption === "previous" && styles.filterButtonActive]} onPress={() => applyDateOption("previous")}>
-                <Text style={[styles.filterButtonText, selectedDateOption === "previous" && styles.filterButtonTextActive]}>Mes Anterior</Text>
-              </Pressable>
-              <Pressable style={[styles.filterButton, selectedDateOption === "custom" && styles.filterButtonActive]} onPress={() => setSelectedDateOption("custom")}>
-                <Text style={[styles.filterButtonText, selectedDateOption === "custom" && styles.filterButtonTextActive]}>Rango</Text>
-              </Pressable>
-            </View>
-          </View>
-          {selectedDateOption === "custom" && (
-            <View style={styles.customDateRow}>
-              <TextInput style={styles.customDateInput} value={customDateFrom} placeholder="Desde YYYY-MM-DD" onChangeText={setCustomDateFrom} keyboardType="numeric" />
-              <TextInput style={styles.customDateInput} value={customDateTo} placeholder="Hasta YYYY-MM-DD" onChangeText={setCustomDateTo} keyboardType="numeric" />
-              <Pressable style={styles.applyButton} onPress={applyCustomDateRange}>
-                <Text style={styles.applyButtonText}>Aplicar</Text>
-              </Pressable>
-            </View>
-          )}
-          <Text style={styles.dateRangeText}>{dateRange.from && dateRange.to ? `${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}` : "Todos los datos"}</Text>
-        </Card>
-
-        {/* Filters */}
-        <Card style={styles.filtersCard}>
-          <Text style={styles.filtersTitle}>Filtros</Text>
-          <View style={styles.filtersRow}>
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Tipo</Text>
-              <View style={styles.filterButtons}>
-                <Pressable style={[styles.filterButton, !filters.type && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, type: undefined })}>
-                  <Text style={[styles.filterButtonText, !filters.type && styles.filterButtonTextActive]}>Todos</Text>
-                </Pressable>
-                <Pressable style={[styles.filterButton, filters.type === "income" && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, type: "income" })}>
-                  <Text style={[styles.filterButtonText, filters.type === "income" && styles.filterButtonTextActive]}>Ingresos</Text>
-                </Pressable>
-                <Pressable style={[styles.filterButton, filters.type === "expense" && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, type: "expense" })}>
-                  <Text style={[styles.filterButtonText, filters.type === "expense" && styles.filterButtonTextActive]}>Gastos</Text>
-                </Pressable>
-                <Pressable style={styles.clearFiltersButton} onPress={() => setFilters({})}>
-                  <Text style={styles.clearFiltersText}>Limpiar</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-          <View style={styles.filtersRow}>
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Categoría</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilterScroll}>
-                <Pressable style={[styles.categoryFilterButton, !filters.category && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, category: undefined })}>
-                  <Text style={[styles.filterButtonText, !filters.category && styles.filterButtonTextActive]}>Todas</Text>
-                </Pressable>
-                <Pressable style={styles.clearFiltersButton} onPress={() => setFilters({})}>
-                  <Text style={styles.clearFiltersText}>Limpiar</Text>
-                </Pressable>
-                {categories.map((category) => (
-                  <Pressable key={category.id} style={[styles.categoryFilterButton, filters.category === category.id && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, category: category.id })}>
-                    <Text style={[styles.filterButtonText, filters.category === category.id && styles.filterButtonTextActive]}>{category.name}</Text>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#10b981" />
+        </View>
+      ) : (
+        <FlatList
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          data={transactions}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <Card style={styles.card}>
+              <View style={styles.transactionRow}>
+                <View style={[styles.iconContainer, item.type === "income" ? styles.incomeIcon : styles.expenseIcon]}>
+                  <MaterialCommunityIcons name={item.type === "income" ? "arrow-bottom-left" : "arrow-top-right"} size={20} color={item.type === "income" ? "#16a34a" : "#dc2626"} />
+                </View>
+                <View style={styles.transactionDetails}>
+                  <Text style={styles.description}>{item.description}</Text>
+                  <Text style={styles.category}>{categories.find((c) => c.id === item.category)?.name || item.category}</Text>
+                  <Text style={styles.date}>{format(parseISO(item.date), "dd/MM/yyyy")}</Text>
+                </View>
+                <Text style={[styles.amount, item.type === "income" ? styles.incomeAmount : styles.expenseAmount]}>
+                  {item.type === "income" ? "+" : "-"}${item.amount.toFixed(2)}
+                </Text>
+                <View style={styles.actionButtons}>
+                  <Pressable
+                    style={styles.actionButton}
+                    onPress={() => {
+                      try {
+                        (navigation as any).getParent?.()?.navigate("EditTransaction", { transactionId: item.id });
+                      } catch (err) {
+                        console.error("Error navigating to EditTransaction:", err);
+                      }
+                    }}
+                  >
+                    <MaterialCommunityIcons name="pencil" size={18} color="#3b82f6" />
                   </Pressable>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        </Card>
-
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#10b981" />
-          </View>
-        ) : transactions && transactions.length > 0 ? (
-          <View>
-            {transactions.map((transaction) => (
-              <Card key={transaction.id} style={styles.card}>
-                <View style={styles.transactionRow}>
-                  <View style={[styles.iconContainer, transaction.type === "income" ? styles.incomeIcon : styles.expenseIcon]}>
-                    <MaterialCommunityIcons name={transaction.type === "income" ? "arrow-bottom-left" : "arrow-top-right"} size={20} color={transaction.type === "income" ? "#16a34a" : "#dc2626"} />
-                  </View>
-                  <View style={styles.transactionDetails}>
-                    <Text style={styles.description}>{transaction.description}</Text>
-                    <Text style={styles.category}>{categories.find((c) => c.id === transaction.category)?.name || transaction.category}</Text>
-                    <Text style={styles.date}>{new Date(transaction.date).toLocaleDateString()}</Text>
-                  </View>
-                  <Text style={[styles.amount, transaction.type === "income" ? styles.incomeAmount : styles.expenseAmount]}>
-                    {transaction.type === "income" ? "+" : "-"}${transaction.amount.toFixed(2)}
-                  </Text>
-                  <View style={styles.actionButtons}>
-                    <Pressable
-                      style={styles.actionButton}
-                      onPress={() => {
-                        try {
-                          (navigation as any).getParent?.()?.navigate("EditTransaction", { transactionId: transaction.id });
-                        } catch (err) {
-                          console.error("Error navigating to EditTransaction:", err);
-                        }
-                      }}
-                    >
-                      <MaterialCommunityIcons name="pencil" size={18} color="#3b82f6" />
+                  <Pressable style={styles.actionButton} onPress={() => handleDeleteTransaction(item.id, item.description)}>
+                    <MaterialCommunityIcons name="trash-can-outline" size={18} color="#ef4444" />
+                  </Pressable>
+                </View>
+              </View>
+            </Card>
+          )}
+          ListHeaderComponent={
+            <>
+              {/* Date range selector */}
+              <Card style={styles.filtersCard}>
+                <Text style={styles.filtersTitle}>Rango de Fecha</Text>
+                <View style={styles.filtersRow}>
+                  <View style={styles.filterButtons}>
+                    <Pressable style={[styles.filterButton, selectedDateOption === "all" && styles.filterButtonActive]} onPress={() => applyDateOption("all")}>
+                      <Text style={[styles.filterButtonText, selectedDateOption === "all" && styles.filterButtonTextActive]}>Todos</Text>
                     </Pressable>
-                    <Pressable style={styles.actionButton} onPress={() => handleDeleteTransaction(transaction.id, transaction.description)}>
-                      <MaterialCommunityIcons name="trash-can-outline" size={18} color="#ef4444" />
+                    <Pressable style={[styles.filterButton, selectedDateOption === "current" && styles.filterButtonActive]} onPress={() => applyDateOption("current")}>
+                      <Text style={[styles.filterButtonText, selectedDateOption === "current" && styles.filterButtonTextActive]}>Mes Actual</Text>
+                    </Pressable>
+                    <Pressable style={[styles.filterButton, selectedDateOption === "previous" && styles.filterButtonActive]} onPress={() => applyDateOption("previous")}>
+                      <Text style={[styles.filterButtonText, selectedDateOption === "previous" && styles.filterButtonTextActive]}>Mes Anterior</Text>
+                    </Pressable>
+                    <Pressable style={[styles.filterButton, selectedDateOption === "custom" && styles.filterButtonActive]} onPress={() => setSelectedDateOption("custom")}>
+                      <Text style={[styles.filterButtonText, selectedDateOption === "custom" && styles.filterButtonTextActive]}>Rango</Text>
                     </Pressable>
                   </View>
                 </View>
+                {selectedDateOption === "custom" && (
+                  <View style={styles.customDateRow}>
+                    <TextInput style={styles.customDateInput} value={customDateFrom} placeholder="Desde YYYY-MM-DD" onChangeText={setCustomDateFrom} keyboardType="numeric" />
+                    <TextInput style={styles.customDateInput} value={customDateTo} placeholder="Hasta YYYY-MM-DD" onChangeText={setCustomDateTo} keyboardType="numeric" />
+                    <Pressable style={styles.applyButton} onPress={applyCustomDateRange}>
+                      <Text style={styles.applyButtonText}>Aplicar</Text>
+                    </Pressable>
+                  </View>
+                )}
+                <Text style={styles.dateRangeText}>{dateRange.from && dateRange.to ? `${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}` : "Todos los datos"}</Text>
               </Card>
-            ))}
-          </View>
-        ) : (
-          <Card style={styles.emptyCard}>
-            <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons name="inbox-outline" size={48} color="#d1d5db" />
-              <Text style={styles.emptyText}>Sin transacciones</Text>
-              <Text style={styles.emptySubtext}>Crea tu primera transacción para empezar</Text>
-            </View>
-          </Card>
-        )}
-      </ScrollView>
+
+              {/* Filters */}
+              <Card style={styles.filtersCard}>
+                <Text style={styles.filtersTitle}>Filtros</Text>
+                <View style={styles.filtersRow}>
+                  <View style={styles.filterGroup}>
+                    <Text style={styles.filterLabel}>Tipo</Text>
+                    <View style={styles.filterButtons}>
+                      <Pressable style={[styles.filterButton, !filters.type && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, type: undefined })}>
+                        <Text style={[styles.filterButtonText, !filters.type && styles.filterButtonTextActive]}>Todos</Text>
+                      </Pressable>
+                      <Pressable style={[styles.filterButton, filters.type === "income" && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, type: "income" })}>
+                        <Text style={[styles.filterButtonText, filters.type === "income" && styles.filterButtonTextActive]}>Ingresos</Text>
+                      </Pressable>
+                      <Pressable style={[styles.filterButton, filters.type === "expense" && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, type: "expense" })}>
+                        <Text style={[styles.filterButtonText, filters.type === "expense" && styles.filterButtonTextActive]}>Gastos</Text>
+                      </Pressable>
+                      <Pressable style={styles.clearFiltersButton} onPress={() => setFilters({})}>
+                        <Text style={styles.clearFiltersText}>Limpiar</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.filtersRow}>
+                  <View style={styles.filterGroup}>
+                    <Text style={styles.filterLabel}>Categoría</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilterScroll}>
+                      <Pressable style={[styles.categoryFilterButton, !filters.category && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, category: undefined })}>
+                        <Text style={[styles.filterButtonText, !filters.category && styles.filterButtonTextActive]}>Todas</Text>
+                      </Pressable>
+                      <Pressable style={styles.clearFiltersButton} onPress={() => setFilters({})}>
+                        <Text style={styles.clearFiltersText}>Limpiar</Text>
+                      </Pressable>
+                      {categories.map((category) => (
+                        <Pressable key={category.id} style={[styles.categoryFilterButton, filters.category === category.id && styles.filterButtonActive]} onPress={() => setFilters({ ...filters, category: category.id })}>
+                          <Text style={[styles.filterButtonText, filters.category === category.id && styles.filterButtonTextActive]}>{category.name}</Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </View>
+              </Card>
+            </>
+          }
+          ListEmptyComponent={
+            <Card style={styles.emptyCard}>
+              <View style={styles.emptyContainer}>
+                <MaterialCommunityIcons name="inbox-outline" size={48} color="#d1d5db" />
+                <Text style={styles.emptyText}>Sin transacciones</Text>
+                <Text style={styles.emptySubtext}>Crea tu primera transacción para empezar</Text>
+              </View>
+            </Card>
+          }
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={styles.footerLoading}>
+                <ActivityIndicator size="small" color="#10b981" />
+              </View>
+            ) : !hasMore && transactions.length > 0 ? (
+              <Text style={styles.footerEndText}>No hay más transacciones</Text>
+            ) : null
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+        />
+      )}
 
       {/* Floating Action Button */}
       <Pressable
@@ -273,13 +290,26 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  contentContainer: {
     paddingHorizontal: 16,
     paddingVertical: 16,
+    paddingBottom: 80,
   },
   loadingContainer: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 40,
+  },
+  footerLoading: {
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  footerEndText: {
+    textAlign: "center",
+    color: "#9ca3af",
+    fontSize: 13,
+    paddingVertical: 16,
   },
   card: {
     marginBottom: 12,
